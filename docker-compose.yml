@@ -1,0 +1,16 @@
+services:
+  redis:
+    image: redis/redis-stack:latest
+    ports:
+      - "6379:6379"
+      - "8001:8001"  # RedisInsight UI (optional, useful for debugging)
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: "1.0"
+    volumes:
+      - redis_data:/data
+
+volumes:
+  redis_data:

@@ -1,0 +1,5 @@
+{
+  "version": "0.1.0",
+  "description": "Evaluation dataset — populate with real questions after ingesting your documentation",
+  "eval_set": []
+}
