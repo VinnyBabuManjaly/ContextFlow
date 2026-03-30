@@ -26,6 +26,13 @@ PROJECT_ROOT = Path(__file__).resolve().parents[2]
 CONFIG_PATH = PROJECT_ROOT / "config.yaml"
 
 
+@pytest.fixture(autouse=True)
+def _provide_dummy_api_key(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Most tests need a dummy API key because the default provider is 'gemini'.
+    Tests that specifically check missing-key behavior override this via patch.dict."""
+    monkeypatch.setenv("GEMINI_API_KEY", "test-dummy-key")
+
+
 class TestLoadsDefaultsFromYaml:
     """Settings should load all default values from config.yaml without any
     environment variable overrides. Every section and every field should be
@@ -33,10 +40,8 @@ class TestLoadsDefaultsFromYaml:
 
     def test_loads_defaults_from_yaml(self) -> None:
         # Arrange — point Settings at the real config.yaml, no env overrides.
-        # We provide a dummy API key because the default provider is "openai",
-        # which requires the key. This test is about YAML loading, not secrets.
-        with patch.dict(os.environ, {"OPENAI_API_KEY": "test-key-for-yaml-loading"}):
-            settings = Settings(_config_path=CONFIG_PATH)
+        # The autouse fixture provides a dummy GEMINI_API_KEY.
+        settings = Settings(_config_path=CONFIG_PATH)
 
         # Assert — spot-check one value from each section to confirm the full
         # file was loaded. If any section failed to parse, its attribute would
@@ -46,9 +51,9 @@ class TestLoadsDefaultsFromYaml:
         assert settings.ingestion.chunking_strategy == "recursive"
         assert settings.ingestion.supported_formats == ["md", "txt", "pdf"]
 
-        assert settings.embedding.provider == "openai"
-        assert settings.embedding.model == "text-embedding-3-small"
-        assert settings.embedding.dimension == 1536
+        assert settings.embedding.provider == "gemini"
+        assert settings.embedding.model == "text-embedding-004"
+        assert settings.embedding.dimension == 768
         assert settings.embedding.batch_size == 100
 
         assert settings.retrieval.top_k == 5
@@ -75,8 +80,8 @@ class TestLoadsDefaultsFromYaml:
         assert settings.long_term_memory.max_facts_injected == 5
         assert settings.long_term_memory.retrieval_threshold == 0.7
 
-        assert settings.llm.provider == "openai"
-        assert settings.llm.model == "gpt-4o-mini"
+        assert settings.llm.provider == "gemini"
+        assert settings.llm.model == "gemini-2.0-flash"
         assert settings.llm.base_url is None
         assert settings.llm.max_tokens == 1024
         assert settings.llm.temperature == 0.1
@@ -107,8 +112,8 @@ class TestEnvVarOverridesYaml:
         # Arrange — set an env var that should override the yaml default.
         # The naming convention is: CONTEXTFLOW_<SECTION>__<KEY> (double underscore
         # separates nested levels, which is pydantic-settings convention).
-        env = {"CONTEXTFLOW_REDIS__URL": "redis://prod:6380", "OPENAI_API_KEY": "test-key"}
-        with patch.dict(os.environ, env):
+        # The autouse fixture already provides GEMINI_API_KEY.
+        with patch.dict(os.environ, {"CONTEXTFLOW_REDIS__URL": "redis://prod:6380"}):
             settings = Settings(_config_path=CONFIG_PATH)
 
         # Assert — env var wins over yaml
@@ -116,17 +121,17 @@ class TestEnvVarOverridesYaml:
 
 
 class TestFailsOnMissingRequiredSecret:
-    """If the embedding/LLM provider is 'openai' and OPENAI_API_KEY is not set,
+    """If the embedding/LLM provider is 'gemini' and GEMINI_API_KEY is not set,
     startup should fail with a clear error — not silently proceed and crash
     later on the first API call with a cryptic auth error."""
 
     def test_fails_on_missing_required_secret(self) -> None:
         # Arrange — ensure the API key is NOT in the environment.
         env = os.environ.copy()
-        env.pop("OPENAI_API_KEY", None)
+        env.pop("GEMINI_API_KEY", None)
 
         with patch.dict(os.environ, env, clear=True):
-            # Act & Assert — constructing Settings with provider=openai and no
+            # Act & Assert — constructing Settings with provider=gemini and no
             # API key should raise immediately.
             with pytest.raises((ValueError, KeyError)):
                 Settings(_config_path=CONFIG_PATH)
@@ -204,10 +209,10 @@ class TestConfigLoadedOnce:
         from contextflow.config import reset_settings
 
         reset_settings()
-        with patch.dict(os.environ, {"OPENAI_API_KEY": "test-key"}):
-            # Act — call get_settings() twice
-            settings_a = get_settings()
-            settings_b = get_settings()
+
+        # Act — call get_settings() twice (autouse fixture provides GEMINI_API_KEY)
+        settings_a = get_settings()
+        settings_b = get_settings()
 
         # Assert — same object in memory (not just equal, actually identical)
         assert settings_a is settings_b

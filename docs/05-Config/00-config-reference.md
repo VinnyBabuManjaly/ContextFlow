@@ -38,16 +38,16 @@ config.yaml         ← primary config (checked into repo with safe defaults)
 
 | Parameter | Default | Range | What it controls |
 |---|---|---|---|
-| `embedding.provider` | `"openai"` | `"openai"`, `"local"` | Which embedding model to use |
-| `embedding.model` | `"text-embedding-3-small"` | any valid model name | Specific model identifier |
-| `embedding.dimension` | `1536` | depends on model | Vector dimension (must match model output) |
+| `embedding.provider` | `"gemini"` | `"gemini"`, `"openai"`, `"local"` | Which embedding model to use |
+| `embedding.model` | `"text-embedding-004"` | any valid model name | Specific model identifier |
+| `embedding.dimension` | `768` | depends on model | Vector dimension (must match model output) |
 | `embedding.batch_size` | `100` | 1-2048 | Chunks per embedding API call during ingestion |
 
 **Tuning notes:**
 
-- `provider`: `"openai"` gives better quality embeddings. `"local"` (sentence-transformers) is free but lower dimension (384-768) and slightly lower quality. Use `"openai"` unless you need offline/free operation.
-- `batch_size`: Higher = fewer API calls during ingestion = faster. Limited by API max (OpenAI allows up to 2048). Set to 100 for a balance of speed and manageable error retries.
-- **Critical:** `dimension` must match the model. `text-embedding-3-small` = 1536. `all-MiniLM-L6-v2` = 384. Mismatch = silent failure (Redis stores wrong-sized vectors, search returns garbage).
+- `provider`: `"gemini"` is the default (free tier: 1,500 requests/day). `"openai"` gives slightly higher quality embeddings but costs $0.02/1M tokens. `"local"` (sentence-transformers) is free but lower dimension (384) and slightly lower quality.
+- `batch_size`: Higher = fewer API calls during ingestion = faster. Limited by API max. Set to 100 for a balance of speed and manageable error retries.
+- **Critical:** `dimension` must match the model. `text-embedding-004` = 768. `text-embedding-3-small` = 1536. `all-MiniLM-L6-v2` = 384. Mismatch = silent failure (Redis stores wrong-sized vectors, search returns garbage).
 
 ---
 
@@ -128,8 +128,8 @@ config.yaml         ← primary config (checked into repo with safe defaults)
 
 | Parameter | Default | Range | What it controls |
 |---|---|---|---|
-| `llm.provider` | `"openai"` | `"openai"`, `"gemini"`, `"ollama"` | Primary LLM provider |
-| `llm.model` | `"gpt-4o-mini"` | any valid model name | Specific model to use |
+| `llm.provider` | `"gemini"` | `"gemini"`, `"openai"`, `"ollama"` | Primary LLM provider |
+| `llm.model` | `"gemini-2.0-flash"` | any valid model name | Specific model to use |
 | `llm.base_url` | `null` | URL string | Override API base URL (used for Ollama: `http://localhost:11434/v1`) |
 | `llm.max_tokens` | `1024` | 100-4096 | Maximum tokens in LLM response |
 | `llm.temperature` | `0.1` | 0.0-2.0 | Randomness in LLM output |
@@ -195,9 +195,9 @@ ingestion:
   supported_formats: ["md", "txt", "pdf"]
 
 embedding:
-  provider: "openai"
-  model: "text-embedding-3-small"
-  dimension: 1536
+  provider: "gemini"
+  model: "text-embedding-004"
+  dimension: 768
   batch_size: 100
 
 retrieval:
@@ -229,8 +229,8 @@ long_term_memory:
   retrieval_threshold: 0.7
 
 llm:
-  provider: "openai"
-  model: "gpt-4o-mini"
+  provider: "gemini"
+  model: "gemini-2.0-flash"
   max_tokens: 1024
   temperature: 0.1
   stream: true

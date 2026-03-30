@@ -112,7 +112,7 @@ class EmbeddingSettings(BaseModel):
     @field_validator("provider")
     @classmethod
     def valid_provider(cls, v: str) -> str:
-        allowed = {"openai", "local"}
+        allowed = {"gemini", "openai", "local"}
         if v not in allowed:
             raise ValueError(f"embedding provider must be one of {allowed}, got '{v}'")
         return v
@@ -422,16 +422,21 @@ class Settings(BaseModel):
 
     @model_validator(mode="after")
     def check_required_secrets(self) -> "Settings":
-        """If any provider is set to 'openai', the API key must be present.
+        """If a cloud provider is configured, its API key must be present.
         Fail at startup, not on the first API call 10 minutes later."""
-        needs_openai = (
-            self.embedding.provider == "openai"
-            or self.llm.provider == "openai"
-        )
-        if needs_openai and not os.environ.get("OPENAI_API_KEY"):
+        providers = {self.embedding.provider, self.llm.provider}
+
+        if "openai" in providers and not os.environ.get("OPENAI_API_KEY"):
             raise ValueError(
                 "OPENAI_API_KEY environment variable is required when "
                 "embedding.provider or llm.provider is set to 'openai'. "
+                "Set it in your environment or .env file."
+            )
+
+        if "gemini" in providers and not os.environ.get("GEMINI_API_KEY"):
+            raise ValueError(
+                "GEMINI_API_KEY environment variable is required when "
+                "embedding.provider or llm.provider is set to 'gemini'. "
                 "Set it in your environment or .env file."
             )
         return self

@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 **ContextFlow** is a full-stack AI assistant using Retrieval-Augmented Generation (RAG). It ingests technical documentation, answers queries with citations, and uses Redis as its "brain" for vector search, semantic caching, session memory, and long-term personalization.
 
-> Note: This project is currently in the blueprint/planning phase. No source code exists yet — implementation is pending.
+> Note: This project is in active development. Phase 1 (Configuration and Data Types) is in progress. Default provider is Gemini (free tier).
 
 ## Architecture: 7-Layer Stack
 

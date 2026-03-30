@@ -49,9 +49,9 @@
 - Knowledge base: ~500 documents × ~20 pages × ~400 words/page ≈ **4M words ≈ 5M tokens**
 - Chunk size: 500 tokens with 50-token overlap
 - Chunks: 5M / 450 (net) ≈ **~11,000 chunks**
-- Embedding dimension: 1536 (OpenAI text-embedding-3-small) or 768 (local model)
-- Vector size per chunk: 1536 × 4 bytes (float32) = **6KB per chunk**
-- Total vector storage: 11,000 × 6KB ≈ **66MB**
+- Embedding dimension: 768 (Gemini text-embedding-004), 1536 (OpenAI text-embedding-3-small), or 384 (local model)
+- Vector size per chunk: 768 × 4 bytes (float32) = **3KB per chunk** (with default Gemini embeddings)
+- Total vector storage: 11,000 × 3KB ≈ **33MB**
 - Metadata per chunk (filename, section, position, tokens): ~200 bytes → **2.2MB**
 - **Total Redis memory: ~100MB** — comfortably fits in RAM
 
@@ -174,20 +174,21 @@ ChunkMetadata = {
 
 ### 3.2 Embedding Model
 
-**Decision:** Support both local (`sentence-transformers/all-MiniLM-L6-v2`, 384-dim) and cloud (`text-embedding-3-small`, 1536-dim) through a common interface.
+**Decision:** Support local (`sentence-transformers/all-MiniLM-L6-v2`, 384-dim), Gemini (`text-embedding-004`, 768-dim), and OpenAI (`text-embedding-3-small`, 1536-dim) through a common interface.
 
-> **Interview lens:** Pick OpenAI embeddings. They're state-of-the-art and fast to ship.
+> **Interview lens:** Pick a cloud embedding provider. They're high-quality and fast to ship.
 >
-> **Actual lens:** The critical constraint is that **the same model must be used at ingestion time and query time**. If you index with `text-embedding-3-small` and query with `text-embedding-3-large`, you're comparing vectors in different spaces. The cosine distance will be meaningless. This is one of the most common production bugs in RAG systems.
+> **Actual lens:** The critical constraint is that **the same model must be used at ingestion time and query time**. If you index with `text-embedding-004` and query with `text-embedding-3-small`, you're comparing vectors in different spaces. The cosine distance will be meaningless. This is one of the most common production bugs in RAG systems.
 
 | Model | Dimension | Latency | Cost | Quality |
 |---|---|---|---|---|
 | `all-MiniLM-L6-v2` (local) | 384 | ~5ms/chunk | Free | Good for English technical text |
 | `all-mpnet-base-v2` (local) | 768 | ~10ms/chunk | Free | Better, heavier |
-| `text-embedding-3-small` | 1536 | ~50ms/call (batched) | $0.02/1M tokens | Very good |
-| `text-embedding-3-large` | 3072 | ~80ms/call | $0.13/1M tokens | Best, overkill for local |
+| `text-embedding-004` (Gemini) | 768 | ~50ms/call (batched) | Free (1,500 req/day) | Very good |
+| `text-embedding-3-small` (OpenAI) | 1536 | ~50ms/call (batched) | $0.02/1M tokens | Very good |
+| `text-embedding-3-large` (OpenAI) | 3072 | ~80ms/call | $0.13/1M tokens | Best, overkill for local |
 
-**Decision:** Default to `text-embedding-3-small` with the option to swap. The embedding model name is stored in Redis alongside the index — a config mismatch at query time raises an error immediately rather than silently returning bad results.
+**Decision:** Default to `text-embedding-004` (Gemini) for its free tier and good quality. The embedding model name is stored in Redis alongside the index — a config mismatch at query time raises an error immediately rather than silently returning bad results.
 
 ---
 

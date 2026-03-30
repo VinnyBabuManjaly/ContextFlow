@@ -123,9 +123,9 @@ class IngestionSettings:
     supported_formats: list[str] = ["md", "txt", "pdf"]
 
 class EmbeddingSettings:
-    provider: str = "openai"        # "openai" | "local"
-    model: str = "text-embedding-3-small"
-    dimension: int = 1536           # must match model output
+    provider: str = "gemini"        # "gemini" | "openai" | "local"
+    model: str = "text-embedding-004"
+    dimension: int = 768            # must match model output
     batch_size: int = 100           # 1-2048
 
 class RetrievalSettings:
@@ -157,8 +157,8 @@ class LongTermMemorySettings:
     retrieval_threshold: float = 0.7
 
 class LLMSettings:
-    provider: str = "openai"
-    model: str = "gpt-4o-mini"
+    provider: str = "gemini"
+    model: str = "gemini-2.0-flash"
     base_url: str | None = None
     max_tokens: int = 1024
     temperature: float = 0.1
@@ -210,7 +210,7 @@ class Settings:
 |------|-----------------|
 | `test_loads_defaults_from_yaml` | Given a minimal config.yaml, all default values are populated correctly |
 | `test_env_var_overrides_yaml` | `REDIS_URL` env var overrides the yaml `redis.url` value |
-| `test_fails_on_missing_required_secret` | If `OPENAI_API_KEY` is required (provider=openai) and absent, startup raises a clear error |
+| `test_fails_on_missing_required_secret` | If `GEMINI_API_KEY` is required (provider=gemini) and absent, startup raises a clear error |
 | `test_validates_chunk_size_range` | `chunk_size` outside 100-1500 raises `ValidationError` |
 | `test_validates_embedding_dimension_positive` | `dimension` of 0 or negative is rejected |
 | `test_validates_cache_threshold_range` | `distance_threshold` outside 0.01-0.30 is rejected |
@@ -384,7 +384,8 @@ From the system design doc (Section 3.2):
 
 | Model | Dimension | Latency | Cost |
 |-------|-----------|---------|------|
-| `text-embedding-3-small` (default) | 1536 | ~50ms/call (batched) | $0.02/1M tokens |
+| `text-embedding-004` (default, Gemini) | 768 | ~50ms/call (batched) | Free (1,500 req/day) |
+| `text-embedding-3-small` (OpenAI) | 1536 | ~50ms/call (batched) | $0.02/1M tokens |
 | `all-MiniLM-L6-v2` (local) | 384 | ~5ms/chunk | Free |
 
 **Critical constraint**: The same embedding model must be used at ingestion time and query time. Mismatch = vectors in different spaces = meaningless cosine distances. The embedding model name is stored alongside the index -- a config mismatch at query time must raise an error immediately.

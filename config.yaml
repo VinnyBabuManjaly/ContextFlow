@@ -59,21 +59,24 @@ ingestion:
 embedding:
 
   # Which embedding provider to use:
-  #   "openai" — higher quality, requires API key, costs $0.02/1M tokens
-  #   "local"  — free (sentence-transformers), lower dimension (384), slightly lower quality
-  provider: "openai"
+  #   "gemini"  — free tier (1,500 req/day), good quality, 768 dimensions
+  #   "openai"  — higher quality, requires API key, costs $0.02/1M tokens
+  #   "local"   — free (sentence-transformers), lower dimension (384), slightly lower quality
+  provider: "gemini"
 
   # Specific model identifier.
+  # For gemini: "text-embedding-004" (768 dim)
   # For openai: "text-embedding-3-small" (1536 dim) or "text-embedding-3-large" (3072 dim)
   # For local:  "all-MiniLM-L6-v2" (384 dim)
-  model: "text-embedding-3-small"
+  model: "text-embedding-004"
 
   # Vector dimension — MUST match the model's output dimension exactly.
+  #   text-embedding-004     = 768
   #   text-embedding-3-small = 1536
   #   text-embedding-3-large = 3072
   #   all-MiniLM-L6-v2       = 384
   # Wrong value = Redis stores wrong-sized vectors, search returns garbage silently.
-  dimension: 1536
+  dimension: 768
 
   # Number of texts to embed in a single API call during ingestion.
   # Higher = fewer API calls = faster ingestion, but larger payloads.
@@ -243,14 +246,14 @@ long_term_memory:
 # -----------------------------------------------------------------------------
 llm:
 
-  # Primary LLM provider: "openai", "gemini", or "ollama"
-  provider: "openai"
+  # Primary LLM provider: "gemini", "openai", or "ollama"
+  provider: "gemini"
 
   # Specific model to use with the chosen provider.
+  # Gemini:  "gemini-2.0-flash", "gemini-1.5-flash", "gemini-pro", etc.
   # OpenAI:  "gpt-4o-mini", "gpt-4o", etc.
-  # Gemini:  "gemini-pro", "gemini-1.5-flash", etc.
   # Ollama:  "llama3.1:8b", "mistral:7b", etc.
-  model: "gpt-4o-mini"
+  model: "gemini-2.0-flash"
 
   # Override API base URL. Only needed for:
   #   - Ollama: "http://localhost:11434/v1"

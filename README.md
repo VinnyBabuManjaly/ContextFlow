@@ -93,8 +93,8 @@ Redis Stack is the single backend -- no separate vector database, cache store, o
 | Language | Python 3.11+ |
 | API Framework | FastAPI + Uvicorn |
 | Database | Redis Stack (vector search, caching, streams, hashes) |
-| Embeddings | OpenAI `text-embedding-3-small` (1536-dim) or local `sentence-transformers` (384-dim) |
-| LLM Providers | OpenAI, Google Gemini, Ollama |
+| Embeddings | Google Gemini `text-embedding-004` (768-dim), OpenAI `text-embedding-3-small` (1536-dim), or local `sentence-transformers` (384-dim) |
+| LLM Providers | Google Gemini (default, free tier), OpenAI, Ollama |
 | Tokenization | tiktoken |
 | CLI | Click |
 | Validation | Pydantic v2 |
@@ -111,8 +111,8 @@ Redis Stack is the single backend -- no separate vector database, cache store, o
 - **Python 3.11+**
 - **Docker** and **Docker Compose** (for Redis Stack)
 - **An LLM API key** (at least one of the following):
+  - `GEMINI_API_KEY` -- for Google Gemini embeddings and LLM (default, free tier)
   - `OPENAI_API_KEY` -- for OpenAI embeddings and LLM
-  - `GOOGLE_API_KEY` -- for Google Gemini
   - [Ollama](https://ollama.ai) installed locally -- for free, offline operation
 
 ---
@@ -143,8 +143,8 @@ cp .env.example .env
 Edit `.env` and add your API key(s):
 
 ```env
-OPENAI_API_KEY=sk-...
-# GOOGLE_API_KEY=...        # optional, for Gemini
+GEMINI_API_KEY=...          # default provider (free tier)
+# OPENAI_API_KEY=sk-...     # optional, if switching to OpenAI
 # REDIS_URL=redis://localhost:6379  # default, change if needed
 ```
 
@@ -242,16 +242,16 @@ Environment variable  >  .env file  >  config.yaml defaults
 |-----------|---------|-------------|
 | `ingestion.chunk_size` | `500` | Target tokens per chunk (100-1500) |
 | `ingestion.chunk_overlap` | `50` | Token overlap between adjacent chunks |
-| `embedding.provider` | `"openai"` | `"openai"` or `"local"` (sentence-transformers) |
-| `embedding.model` | `"text-embedding-3-small"` | Embedding model name |
+| `embedding.provider` | `"gemini"` | `"gemini"`, `"openai"`, or `"local"` (sentence-transformers) |
+| `embedding.model` | `"text-embedding-004"` | Embedding model name |
 | `retrieval.top_k` | `5` | Number of chunks to retrieve per query |
 | `retrieval.fusion_method` | `"rrf"` | `"rrf"` (Reciprocal Rank Fusion) or `"weighted"` |
 | `cache.distance_threshold` | `0.10` | Max cosine distance for a cache hit (lower = stricter) |
 | `cache.ttl_seconds` | `604800` | Cache entry expiration (7 days) |
 | `session.context_window_turns` | `10` | Recent conversation turns included in prompt |
 | `session.ttl_seconds` | `86400` | Session expiration (24 hours) |
-| `llm.provider` | `"openai"` | `"openai"`, `"gemini"`, or `"ollama"` |
-| `llm.model` | `"gpt-4o-mini"` | LLM model name |
+| `llm.provider` | `"gemini"` | `"gemini"`, `"openai"`, or `"ollama"` |
+| `llm.model` | `"gemini-2.0-flash"` | LLM model name |
 | `llm.temperature` | `0.1` | Low temperature for deterministic, grounded answers |
 | `redis.index_type` | `"FLAT"` | `"FLAT"` (exact) or `"HNSW"` (approximate) |
 
