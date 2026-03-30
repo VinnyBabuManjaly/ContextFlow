@@ -1,0 +1,391 @@
+# =============================================================================
+# ContextFlow Configuration
+# =============================================================================
+#
+# This is the single source of safe defaults for the entire system.
+# All values here are documented in: docs/05-Config/00-config-reference.md
+#
+# PRECEDENCE (highest wins):
+#   1. Environment variable  (e.g. CONTEXTFLOW_REDIS__URL)
+#   2. .env file             (secrets only — never checked into git)
+#   3. This file             (safe defaults — checked into git)
+#
+# SECRETS (API keys, tokens) must NEVER appear in this file.
+# Put them in .env or export them as environment variables.
+# The app will fail loudly on startup if required secrets are missing.
+# =============================================================================
+
+
+# -----------------------------------------------------------------------------
+# INGESTION — Controls how documents are split into chunks for indexing
+# -----------------------------------------------------------------------------
+ingestion:
+
+  # Target number of tokens per chunk.
+  # Too small (<200): chunks lack self-contained meaning, embeddings are poor.
+  # Too large (>800): chunks are too broad, retrieval precision drops.
+  # 500 is the empirical sweet spot for technical documentation.
+  # Range: 100-1500
+  chunk_size: 500
+
+  # Number of overlapping tokens between adjacent chunks.
+  # Overlap prevents information loss at chunk boundaries — the end of chunk N
+  # is repeated at the start of chunk N+1, so a sentence split across the
+  # boundary is fully present in at least one chunk.
+  # Rule of thumb: 10% of chunk_size.
+  # Range: 0-200
+  chunk_overlap: 50
+
+  # How documents are split into chunks:
+  #   "recursive" — split on \n\n, then \n, then space (respects doc structure)
+  #   "fixed"     — split at exact token count (for benchmarking only)
+  #   "heading"   — split on markdown headings (for well-structured .md files)
+  chunking_strategy: "recursive"
+
+  # File types the loader will accept. Files with other extensions are skipped.
+  supported_formats:
+    - "md"
+    - "txt"
+    - "pdf"
+
+
+# -----------------------------------------------------------------------------
+# EMBEDDING — Controls the model that converts text into vector representations
+# -----------------------------------------------------------------------------
+# CRITICAL: The SAME embedding model must be used at ingestion and query time.
+# Mismatch = vectors in different spaces = meaningless cosine distances = garbage results.
+# The model name is stored alongside the index to detect mismatches at query time.
+# -----------------------------------------------------------------------------
+embedding:
+
+  # Which embedding provider to use:
+  #   "openai" — higher quality, requires API key, costs $0.02/1M tokens
+  #   "local"  — free (sentence-transformers), lower dimension (384), slightly lower quality
+  provider: "openai"
+
+  # Specific model identifier.
+  # For openai: "text-embedding-3-small" (1536 dim) or "text-embedding-3-large" (3072 dim)
+  # For local:  "all-MiniLM-L6-v2" (384 dim)
+  model: "text-embedding-3-small"
+
+  # Vector dimension — MUST match the model's output dimension exactly.
+  #   text-embedding-3-small = 1536
+  #   text-embedding-3-large = 3072
+  #   all-MiniLM-L6-v2       = 384
+  # Wrong value = Redis stores wrong-sized vectors, search returns garbage silently.
+  dimension: 1536
+
+  # Number of texts to embed in a single API call during ingestion.
+  # Higher = fewer API calls = faster ingestion, but larger payloads.
+  # OpenAI allows up to 2048. 100 balances speed with manageable error retries.
+  # Range: 1-2048
+  batch_size: 100
+
+
+# -----------------------------------------------------------------------------
+# RETRIEVAL — Controls how relevant chunks are found for a query
+# -----------------------------------------------------------------------------
+retrieval:
+
+  # Number of chunks to retrieve per search method (vector and BM25 each return top_k).
+  # After fusion, the final list may be up to 2*top_k before deduplication.
+  # Start at 5. If precision is low (many irrelevant chunks), reduce to 3.
+  # If relevant chunks are consistently at position 6-7, increase to 8.
+  # Range: 1-20
+  top_k: 5
+
+  # Minimum cosine similarity (0.0-1.0) to include a chunk in results.
+  # Acts as a safety floor — even top-k results below this score are excluded.
+  # Prevents returning noise when the query is unrelated to any indexed content.
+  # 0.7 is a reasonable starting point. Lower to 0.5 if too many queries return
+  # zero results. Raise to 0.8 if results include too much noise.
+  # Range: 0.0-1.0
+  similarity_threshold: 0.7
+
+  # How vector search and BM25 text search results are merged:
+  #   "rrf"      — Reciprocal Rank Fusion (recommended, uses rank position only)
+  #   "weighted" — Weighted combination (requires score calibration, use only with evidence)
+  # RRF is preferred because BM25 scores are unbounded while cosine is [0,1] —
+  # RRF sidesteps this by using only rank position, not raw scores.
+  fusion_method: "rrf"
+
+  # RRF dampening constant (from the original paper).
+  # Lower values (10-30): amplify top-ranked results.
+  # Higher values (60-100): flatten the distribution across ranks.
+  # 60 is the standard. Rarely needs changing.
+  # Range: 1-100
+  rrf_k: 60
+
+  # Whether to apply cross-encoder reranking after fusion.
+  # Reranking adds ~50-200ms latency but can fix ranking errors.
+  # Only enable after baseline retrieval eval confirms that the right chunks
+  # ARE being retrieved but are ranked in the wrong order.
+  use_reranker: false
+
+  # How many chunks to keep after reranking (only relevant when use_reranker=true).
+  # The reranker scores all retrieved chunks and keeps only the top N.
+  # Range: 1-10
+  rerank_top_n: 3
+
+
+# -----------------------------------------------------------------------------
+# SEMANTIC CACHE — Pre-LLM cache that returns instant answers for similar queries
+# -----------------------------------------------------------------------------
+# Flow: Query -> Embed -> Check cache -> if similar query found, return cached answer
+#                                      -> if not, continue to full retrieval + LLM pipeline
+# -----------------------------------------------------------------------------
+cache:
+
+  # Master switch. Set to false to disable caching entirely (useful for debugging).
+  enabled: true
+
+  # Maximum cosine distance for a cache hit. LOWER = STRICTER (fewer hits, safer).
+  # This is the most sensitive parameter in the entire system.
+  #   0.05 — near-exact match only (very low hit rate ~5%, very safe)
+  #   0.10 — paraphrases match (moderate hit rate ~15-25%, good balance)
+  #   0.15 — semantically similar (high hit rate ~30-40%, some wrong answers)
+  #   0.20+ — loosely related (dangerous, will return wrong cached answers)
+  # Start at 0.10. Log every hit with its distance for offline review.
+  # Range: 0.01-0.30
+  distance_threshold: 0.10
+
+  # How long a cached answer lives before expiring (seconds).
+  # 604800 = 7 days. Good for stable documentation.
+  # If docs change frequently, reduce to 86400-259200 (1-3 days).
+  # Set to 0 to disable TTL (cache lives until evicted or manually cleared).
+  # Range: 0-2592000 (30 days max)
+  ttl_seconds: 604800
+
+  # Maximum number of cached queries. When exceeded, oldest entries are evicted.
+  # Range: 100-100000
+  max_entries: 10000
+
+  # Only cache answers that contain at least one valid citation.
+  # This prevents caching hallucinated answers — the cheapest quality gate.
+  # Keep this true unless you have a specific reason to disable it.
+  require_citations: true
+
+
+# -----------------------------------------------------------------------------
+# SESSION MEMORY — Per-session conversation history stored in Redis Streams
+# -----------------------------------------------------------------------------
+# Enables multi-turn conversations ("What about the TTL on that?").
+# Each session has its own Redis Stream with auto-trimming and TTL.
+# -----------------------------------------------------------------------------
+session:
+
+  # Maximum conversation turns stored per session (Redis MAXLEN).
+  # Oldest turns are trimmed when this limit is exceeded.
+  # Range: 10-1000
+  max_turns: 100
+
+  # How many recent turns to include in the LLM prompt.
+  # 10 turns * ~200 tokens/turn = ~2,000 tokens of history.
+  # Safe for 128K-context models (GPT-4o-mini).
+  # For small local models (4K-8K context), reduce to 3-5.
+  # Range: 1-50
+  context_window_turns: 10
+
+  # Session expiration in seconds. 86400 = 24 hours.
+  # After this, the session and its history are automatically deleted by Redis.
+  # Range: 3600 (1hr) - 604800 (7 days)
+  ttl_seconds: 86400
+
+  # Trigger history summarization after this many turns.
+  # Summarization compresses old turns into a bullet-point summary (~500 tokens)
+  # to free up token budget. It's lossy — detail is discarded.
+  # At 50 turns * ~200 tokens = ~10K tokens, which is a good trigger point.
+  # Range: 20-200
+  summarize_after_turns: 50
+
+
+# -----------------------------------------------------------------------------
+# LONG-TERM MEMORY — Persistent user facts extracted from conversations
+# -----------------------------------------------------------------------------
+# Extracts facts like "User works with Python" or "User prefers concise answers"
+# and stores them as vectors in Redis. Relevant facts are injected into future
+# queries to personalize responses.
+#
+# This is a NON-CORE component. If it fails, the system logs a warning and
+# continues without personalization. It must never crash the query pipeline.
+# -----------------------------------------------------------------------------
+long_term_memory:
+
+  # Master switch. Set to false to disable fact extraction and injection.
+  enabled: true
+
+  # How long a fact lives (days) if not re-confirmed in a new conversation.
+  # Facts that are re-confirmed get their TTL refreshed.
+  # Range: 7-365
+  ttl_days: 30
+
+  # Minimum confidence score (0.0-1.0) to store an extracted fact.
+  # Below 0.5: stores noise ("User might be interested in databases").
+  # Above 0.8: only stores explicit statements, misses useful inferences.
+  # 0.6 is a reasonable middle ground.
+  # Range: 0.0-1.0
+  min_confidence: 0.6
+
+  # Maximum facts to inject into a query prompt.
+  # Each fact is ~20-50 tokens. 5 facts = ~100-250 tokens.
+  # Keep low to avoid crowding out chunk context (which is primary).
+  # Range: 1-20
+  max_facts_injected: 5
+
+  # Minimum vector similarity to inject a fact into a query.
+  # Only facts relevant to the current question are injected.
+  # Range: 0.0-1.0
+  retrieval_threshold: 0.7
+
+
+# -----------------------------------------------------------------------------
+# LLM — Language model configuration for answer generation
+# -----------------------------------------------------------------------------
+llm:
+
+  # Primary LLM provider: "openai", "gemini", or "ollama"
+  provider: "openai"
+
+  # Specific model to use with the chosen provider.
+  # OpenAI:  "gpt-4o-mini", "gpt-4o", etc.
+  # Gemini:  "gemini-pro", "gemini-1.5-flash", etc.
+  # Ollama:  "llama3.1:8b", "mistral:7b", etc.
+  model: "gpt-4o-mini"
+
+  # Override API base URL. Only needed for:
+  #   - Ollama: "http://localhost:11434/v1"
+  #   - Custom/proxy endpoints
+  # Leave null for standard cloud APIs.
+  base_url: null
+
+  # Maximum tokens in the LLM response.
+  # 1024 is enough for most documentation answers.
+  # Increase if answers are getting truncated (cut off mid-sentence).
+  # Decrease if answers are too verbose (and add "Be concise" to prompt).
+  # Range: 100-4096
+  max_tokens: 1024
+
+  # Randomness in LLM output. 0.0 = deterministic, 2.0 = very creative.
+  # For documentation Q&A, you want grounded, deterministic answers.
+  # 0.1 is slightly above zero — some providers behave better at 0.1 than 0.0.
+  # Range: 0.0-2.0
+  temperature: 0.1
+
+  # Whether to stream tokens to the client via SSE (Server-Sent Events).
+  # true = user sees tokens appear in real-time (better UX).
+  # false = user waits for full response (simpler, good for testing).
+  stream: true
+
+  # Maximum seconds to wait for an LLM response before timing out.
+  # 30s is generous for cloud APIs.
+  # Ollama on CPU with 7B model can take 15-30s — increase to 60s for local models.
+  # Range: 5-120
+  timeout_seconds: 30
+
+  # Fallback provider configuration. If the primary LLM fails (timeout, 500, rate limit),
+  # the system retries once, then falls back to this provider.
+  # Set to null to disable fallback (primary failure = error returned to user).
+  # Example:
+  #   fallback:
+  #     provider: "ollama"
+  #     model: "llama3.1:8b"
+  fallback: null
+
+
+# -----------------------------------------------------------------------------
+# REDIS — Connection and vector index configuration
+# -----------------------------------------------------------------------------
+# Redis Stack is the ONLY backend for this entire system.
+# Vectors, cache, sessions, metrics, long-term memory — all in Redis.
+# If Redis is down, the system fails fast (no silent degradation).
+# -----------------------------------------------------------------------------
+redis:
+
+  # Redis connection URL. Includes host, port, and optional auth.
+  # Examples:
+  #   "redis://localhost:6379"           — local, no auth
+  #   "redis://:password@host:6379"      — with password
+  #   "rediss://host:6380"               — TLS
+  url: "redis://localhost:6379"
+
+  # Async connection pool size. 10 is fine for single-user or light concurrent load.
+  # Increase only if you see "connection pool exhausted" errors.
+  # Range: 5-50
+  max_connections: 10
+
+  # Vector index algorithm:
+  #   "FLAT" — exact brute-force search. Guaranteed best recall. Fast enough for <50K vectors.
+  #            Use this until you have a reason not to. Eliminates one variable during debugging.
+  #   "HNSW" — approximate nearest neighbor. Faster for large indexes (50K+), but approximate.
+  #            Requires tuning M, ef_construction, ef_runtime parameters below.
+  index_type: "FLAT"
+
+  # HNSW parameters — only relevant when index_type = "HNSW".
+  # Ignored entirely when using FLAT.
+
+  # Connections per node in the HNSW graph.
+  # Higher M = better recall, more memory usage, slower index build.
+  # Range: 4-64
+  hnsw_m: 16
+
+  # Beam width during index construction.
+  # Higher = better graph quality (better recall), slower build time.
+  # Range: 50-500
+  hnsw_ef_construction: 200
+
+  # Beam width during search.
+  # Higher = better recall, slower queries.
+  # Must be >= top_k.
+  # Range: 10-500
+  hnsw_ef_runtime: 10
+
+
+# -----------------------------------------------------------------------------
+# SERVER — FastAPI / Uvicorn configuration
+# -----------------------------------------------------------------------------
+server:
+
+  # Bind address. "127.0.0.1" = localhost only (secure default).
+  # Use "0.0.0.0" to accept connections from other machines (e.g. in Docker).
+  host: "127.0.0.1"
+
+  # HTTP port for the API server.
+  # Range: 1024-65535
+  port: 8000
+
+  # Uvicorn worker processes. 1 is fine for development and single-user.
+  # Increase to 2-4 for concurrent users, but note: each worker has its own
+  # connection pool, so total Redis connections = workers * max_connections.
+  # Range: 1-4
+  workers: 1
+
+
+# -----------------------------------------------------------------------------
+# LOGGING — Structured logging configuration
+# -----------------------------------------------------------------------------
+logging:
+
+  # Minimum log level:
+  #   "DEBUG"   — everything, including internal state (noisy, dev only)
+  #   "INFO"    — meaningful events: startup, ingestion complete, query served
+  #   "WARNING" — recoverable issues: cache miss, fallback triggered
+  #   "ERROR"   — failures requiring attention: Redis down, LLM timeout
+  level: "INFO"
+
+  # Log output format:
+  #   "json" — structured key-value pairs, machine-parseable (recommended for production)
+  #   "text" — human-readable lines (easier to scan during development)
+  format: "json"
+
+
+# -----------------------------------------------------------------------------
+# METRICS — Observability and performance tracking
+# -----------------------------------------------------------------------------
+# Tracks cache hit rates, query latency, token usage, and cost.
+# Exposed via GET /metrics endpoint.
+# Stored in Redis Hash at key "metrics:global" using atomic HINCRBY.
+# -----------------------------------------------------------------------------
+metrics:
+
+  # Master switch. Set to false to disable all metrics collection.
+  enabled: true
