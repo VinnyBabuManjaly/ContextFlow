@@ -32,8 +32,11 @@ class TestLoadsDefaultsFromYaml:
     present and match the value written in config.yaml."""
 
     def test_loads_defaults_from_yaml(self) -> None:
-        # Arrange — point Settings at the real config.yaml, no env overrides
-        settings = Settings(_config_path=CONFIG_PATH)
+        # Arrange — point Settings at the real config.yaml, no env overrides.
+        # We provide a dummy API key because the default provider is "openai",
+        # which requires the key. This test is about YAML loading, not secrets.
+        with patch.dict(os.environ, {"OPENAI_API_KEY": "test-key-for-yaml-loading"}):
+            settings = Settings(_config_path=CONFIG_PATH)
 
         # Assert — spot-check one value from each section to confirm the full
         # file was loaded. If any section failed to parse, its attribute would
@@ -104,7 +107,8 @@ class TestEnvVarOverridesYaml:
         # Arrange — set an env var that should override the yaml default.
         # The naming convention is: CONTEXTFLOW_<SECTION>__<KEY> (double underscore
         # separates nested levels, which is pydantic-settings convention).
-        with patch.dict(os.environ, {"CONTEXTFLOW_REDIS__URL": "redis://prod:6380"}):
+        env = {"CONTEXTFLOW_REDIS__URL": "redis://prod:6380", "OPENAI_API_KEY": "test-key"}
+        with patch.dict(os.environ, env):
             settings = Settings(_config_path=CONFIG_PATH)
 
         # Assert — env var wins over yaml
@@ -195,9 +199,18 @@ class TestConfigLoadedOnce:
     wasteful and could cause inconsistency if the file changes mid-run."""
 
     def test_config_loaded_once(self) -> None:
-        # Act — call get_settings() twice
-        settings_a = get_settings()
-        settings_b = get_settings()
+        # Arrange — reset singleton so prior tests don't interfere,
+        # and provide a dummy API key since default provider is "openai".
+        from contextflow.config import reset_settings
+
+        reset_settings()
+        with patch.dict(os.environ, {"OPENAI_API_KEY": "test-key"}):
+            # Act — call get_settings() twice
+            settings_a = get_settings()
+            settings_b = get_settings()
 
         # Assert — same object in memory (not just equal, actually identical)
         assert settings_a is settings_b
+
+        # Cleanup — reset so this singleton doesn't leak into other tests
+        reset_settings()
