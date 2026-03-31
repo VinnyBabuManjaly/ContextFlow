@@ -92,3 +92,38 @@ class TestRrfScoreCalculationIsCorrect:
         expected = 1 / 61 + 1 / 62
         for result in merged:
             assert abs(result.score - expected) < 0.0001
+
+
+class TestRrfKParameterAffectsScores:
+    """Different k values should produce different orderings for edge cases."""
+
+    def test_k_parameter_impact(self) -> None:
+        list_a = [_make_result("A"), _make_result("B"), _make_result("C")]
+        list_b = [_make_result("C"), _make_result("A"), _make_result("B")]
+
+        # Test with different k values
+        merged_k1 = reciprocal_rank_fusion([list_a, list_b], k=1)
+        merged_k60 = reciprocal_rank_fusion([list_a, list_b], k=60)
+        merged_k100 = reciprocal_rank_fusion([list_a, list_b], k=100)
+
+        # All should return the same chunk IDs
+        ids_k1 = {r.chunk_id for r in merged_k1}
+        ids_k60 = {r.chunk_id for r in merged_k60}
+        ids_k100 = {r.chunk_id for r in merged_k100}
+        
+        assert ids_k1 == ids_k60 == ids_k100 == {"A", "B", "C"}
+
+        # But scores should be different (k affects the weight)
+        scores_k1 = {r.chunk_id: r.score for r in merged_k1}
+        scores_k60 = {r.chunk_id: r.score for r in merged_k60}
+        scores_k100 = {r.chunk_id: r.score for r in merged_k100}
+
+        # Lower k amplifies top-ranked differences
+        # With k=1, rank differences matter more than with k=100
+        assert scores_k1["A"] != scores_k60["A"]
+        assert scores_k60["A"] != scores_k100["A"]
+
+        # With k=1, the top-ranked items should have more dramatic score differences
+        score_range_k1 = max(scores_k1.values()) - min(scores_k1.values())
+        score_range_k100 = max(scores_k100.values()) - min(scores_k100.values())
+        assert score_range_k1 > score_range_k100  # Lower k = more score variation
