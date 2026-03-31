@@ -16,7 +16,6 @@ from pathlib import Path
 import yaml
 from pydantic import BaseModel, field_validator, model_validator
 
-
 # ---------------------------------------------------------------------------
 # Helper: load YAML file into a plain dict
 # ---------------------------------------------------------------------------
