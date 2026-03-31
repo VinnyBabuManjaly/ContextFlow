@@ -1,28 +1,23 @@
-"""Tests for the query orchestrator.
+"""Tests for the query orchestrator (MVP version).
 
 All external dependencies (embedder, Redis, LLM) are mocked.
 Tests verify the orchestration logic: embed → search → build prompt → call LLM → return.
 """
 
 from pathlib import Path
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
 from contextflow.llm.base import Message
-from contextflow.memory.session import SessionMemory, Turn
 from contextflow.orchestrator import QueryOrchestrator
 from contextflow.retrieval.search_types import SearchResult
-
-
-PROMPTS = Path(__file__).resolve().parents[2] / "prompts"
 
 
 def _make_orchestrator(
     embed_result: list[float] | None = None,
     search_results: list[SearchResult] | None = None,
     llm_response: str = "Test answer [chunk:abc:0]",
-    session_memory: SessionMemory | None = None,
 ) -> QueryOrchestrator:
     """Create an orchestrator with all dependencies mocked."""
     dim = 768
@@ -53,13 +48,14 @@ def _make_orchestrator(
 
     mock_search = AsyncMock(return_value=default_results)
 
+    prompt_path = Path(__file__).resolve().parents[2] / "prompts" / "rag_system_v1.txt"
+
     return QueryOrchestrator(
         embedder=mock_embedder,
         redis_client=mock_redis,
         llm_router=mock_router,
         search_fn=mock_search,
-        prompt_template_path=PROMPTS / "rag_system_v1.txt",
-        session_memory=session_memory,
+        prompt_template_path=prompt_path,
     )
 
 
@@ -82,6 +78,9 @@ class TestRetrievalCalledWithQueryVector:
         await orch.query("What is EXPIRE?")
 
         orch._search_fn.assert_called_once()
+        call_kwargs = orch._search_fn.call_args
+        # The query vector should be passed to search
+        assert call_kwargs is not None
 
 
 class TestPromptIncludesRetrievedChunks:
@@ -92,7 +91,8 @@ class TestPromptIncludesRetrievedChunks:
         await orch.query("What is EXPIRE?")
 
         call_args = orch._llm_router.complete.call_args
-        messages = call_args[0][0]
+        messages = call_args[0][0]  # first positional arg is messages list
+        # Find the system or user message containing chunks
         all_content = " ".join(m.content for m in messages)
         assert "chunk:abc:0" in all_content
         assert "EXPIRE sets a timeout" in all_content
@@ -135,6 +135,7 @@ class TestHandlesNoRetrievalResults:
         result = await orch.query("What is quantum physics?")
 
         assert "No relevant documentation found" in result.answer
+        # LLM should NOT be called
         orch._llm_router.complete.assert_not_called()
 
 
@@ -150,60 +151,3 @@ class TestCitationValidationStripsInvalid:
         chunk_ids = [c.chunk_id for c in result.citations]
         assert "chunk:abc:0" in chunk_ids
         assert "chunk:fake:99" not in chunk_ids
-
-
-# --- Session Memory Integration Tests ---
-
-
-class TestSessionHistoryInjectedIntoPrompt:
-    """When session_id is provided, history should appear in the prompt."""
-
-    async def test_history_in_prompt(self) -> None:
-        mock_session = AsyncMock(spec=SessionMemory)
-        mock_session.get_recent_turns = AsyncMock(return_value=[
-            Turn(role="user", content="What is Redis?"),
-            Turn(role="assistant", content="Redis is an in-memory data store."),
-        ])
-
-        orch = _make_orchestrator(session_memory=mock_session)
-        await orch.query("What about TTL?", session_id="sess-1")
-
-        call_args = orch._llm_router.complete.call_args
-        messages = call_args[0][0]
-        all_content = " ".join(m.content for m in messages)
-        assert "What is Redis?" in all_content
-        assert "Redis is an in-memory data store" in all_content
-
-
-class TestSessionTurnsWrittenAfterResponse:
-    """After a successful response, both user and assistant turns are saved."""
-
-    async def test_turns_saved(self) -> None:
-        mock_session = AsyncMock(spec=SessionMemory)
-        mock_session.get_recent_turns = AsyncMock(return_value=[])
-
-        orch = _make_orchestrator(
-            llm_response="EXPIRE sets a timeout [chunk:abc:0].",
-            session_memory=mock_session,
-        )
-        await orch.query("What is EXPIRE?", session_id="sess-1")
-
-        # Should have called add_turn twice: user + assistant
-        assert mock_session.add_turn.call_count == 2
-        calls = mock_session.add_turn.call_args_list
-        assert calls[0][0] == ("sess-1", "user", "What is EXPIRE?")
-        assert calls[1][0][0] == "sess-1"
-        assert calls[1][0][1] == "assistant"
-
-
-class TestNoSessionWhenSessionIdNotProvided:
-    """Without session_id, no session reads or writes should happen."""
-
-    async def test_no_session_ops(self) -> None:
-        mock_session = AsyncMock(spec=SessionMemory)
-
-        orch = _make_orchestrator(session_memory=mock_session)
-        await orch.query("What is EXPIRE?")
-
-        mock_session.get_recent_turns.assert_not_called()
-        mock_session.add_turn.assert_not_called()

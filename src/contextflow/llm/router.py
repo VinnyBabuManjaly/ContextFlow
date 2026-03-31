@@ -36,7 +36,20 @@ class LLMRouter:
         max_tokens: int = 1024,
         temperature: float = 0.1,
     ) -> str | AsyncIterator[str]:
-        """Route completion to primary, falling back if configured."""
+        """Route completion to primary, falling back if configured.
+
+        Args:
+            messages: Conversation messages.
+            stream: Whether to stream the response.
+            max_tokens: Maximum tokens in response.
+            temperature: Sampling temperature.
+
+        Returns:
+            Response string or async iterator of token strings.
+
+        Raises:
+            Exception: If primary fails and no fallback is configured.
+        """
         try:
             return await self._primary.complete(
                 messages, stream=stream, max_tokens=max_tokens, temperature=temperature,

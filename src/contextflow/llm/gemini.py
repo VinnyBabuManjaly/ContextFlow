@@ -35,18 +35,23 @@ class GeminiProvider(LLMProvider):
         self._max_tokens = max_tokens
         self._temperature = temperature
 
-    def _format_messages(self, messages: list[Message]) -> tuple[str | None, list[dict]]:
+    def _format_messages(self, messages: list[Message]) -> tuple[str | None, list[dict[str, str]]]:
         """Convert Messages to Gemini format.
 
         Separates the system instruction from conversation contents.
+
+        Returns:
+            Tuple of (system_instruction, contents) where contents is a list
+            of dicts with 'role' and 'parts' keys.
         """
         system_instruction: str | None = None
-        contents: list[dict] = []
+        contents: list[dict[str, str]] = []
 
         for msg in messages:
             if msg.role == "system":
                 system_instruction = msg.content
             else:
+                # Gemini uses "model" instead of "assistant"
                 role = "model" if msg.role == "assistant" else "user"
                 contents.append({"role": role, "parts": [{"text": msg.content}]})
 
@@ -58,7 +63,11 @@ class GeminiProvider(LLMProvider):
         max_tokens: int,
         temperature: float,
     ) -> str:
-        """Call Gemini API for a non-streaming completion."""
+        """Call Gemini API for a non-streaming completion.
+
+        This is the injection point for mocking in tests.
+        Real implementation uses google.genai async client.
+        """
         from google import genai
 
         system_instruction, contents = self._format_messages(messages)
@@ -83,7 +92,10 @@ class GeminiProvider(LLMProvider):
         max_tokens: int,
         temperature: float,
     ) -> AsyncIterator[str]:
-        """Call Gemini API for a streaming completion."""
+        """Call Gemini API for a streaming completion.
+
+        Returns an async iterator yielding text chunks.
+        """
         from google import genai
 
         system_instruction, contents = self._format_messages(messages)
@@ -111,7 +123,17 @@ class GeminiProvider(LLMProvider):
         max_tokens: int | None = None,
         temperature: float | None = None,
     ) -> str | AsyncIterator[str]:
-        """Generate a completion from the given messages."""
+        """Generate a completion from the given messages.
+
+        Args:
+            messages: Conversation messages.
+            stream: If True, return async iterator of token strings.
+            max_tokens: Override default max tokens.
+            temperature: Override default temperature.
+
+        Returns:
+            Full response string, or async iterator of token strings.
+        """
         effective_max_tokens = max_tokens if max_tokens is not None else self._max_tokens
         effective_temperature = temperature if temperature is not None else self._temperature
 
