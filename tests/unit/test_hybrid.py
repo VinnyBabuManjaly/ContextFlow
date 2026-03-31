@@ -7,7 +7,6 @@ RRF formula: score(d) = sum( 1 / (k + rank_i(d)) ) for each list i
 where rank is 1-indexed.
 """
 
-import pytest
 
 from contextflow.retrieval.hybrid import reciprocal_rank_fusion
 from contextflow.retrieval.search_types import SearchResult
@@ -110,7 +109,7 @@ class TestRrfKParameterAffectsScores:
         ids_k1 = {r.chunk_id for r in merged_k1}
         ids_k60 = {r.chunk_id for r in merged_k60}
         ids_k100 = {r.chunk_id for r in merged_k100}
-        
+
         assert ids_k1 == ids_k60 == ids_k100 == {"A", "B", "C"}
 
         # But scores should be different (k affects the weight)

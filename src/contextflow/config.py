@@ -12,16 +12,16 @@ Loading precedence (highest wins):
 
 import os
 from pathlib import Path
+from typing import Any
 
-import yaml
+import yaml  # type: ignore[import-untyped]
 from pydantic import BaseModel, field_validator, model_validator
-
 
 # ---------------------------------------------------------------------------
 # Helper: load YAML file into a plain dict
 # ---------------------------------------------------------------------------
 
-def _load_yaml(path: Path) -> dict:
+def _load_yaml(path: Path) -> dict[str, Any]:
     """Read a YAML file and return its contents as a nested dict."""
     with open(path) as f:
         data = yaml.safe_load(f)
@@ -32,7 +32,7 @@ def _load_yaml(path: Path) -> dict:
 # Helper: apply CONTEXTFLOW_* environment variable overrides
 # ---------------------------------------------------------------------------
 
-def _apply_env_overrides(data: dict) -> dict:
+def _apply_env_overrides(data: dict[str, Any]) -> dict[str, Any]:
     """Scan os.environ for CONTEXTFLOW_SECTION__KEY entries and merge them
     into the config dict. Double-underscore separates nesting levels.
 
@@ -397,11 +397,11 @@ class Settings(BaseModel):
     def __init__(
         self,
         _config_path: Path | None = None,
-        _overrides: dict | None = None,
+        _overrides: dict[str, Any] | None = None,
         **kwargs: object,
     ) -> None:
         # Step 1: Load YAML defaults
-        data: dict = {}
+        data: dict[str, Any] = {}
         if _config_path is not None:
             data = _load_yaml(_config_path)
 

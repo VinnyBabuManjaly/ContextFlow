@@ -583,9 +583,9 @@ RRF unit tests pass with purely in-memory data (no Redis). Integration tests pro
 
 ### Phase 5: LLM Abstraction + Orchestrator (MVP Complete)
 
-**Goal**: Abstract LLM interface with OpenAI provider, prompt builder, and the query orchestrator. This phase produces the **Minimum Viable Pipeline**: ingest docs, ask a question, get a grounded answer with citations.
+**Goal**: Abstract LLM interface with OpenAI and Gemini providers, prompt builder, and the query orchestrator. This phase produces the **Minimum Viable Pipeline**: ingest docs, ask a question, get a grounded answer with citations.
 
-**Why fifth**: This is the keystone phase. It connects Phases 3 and 4 to an LLM and produces the first user-visible output. The orchestrator is a thin coordination layer -- the heavy logic lives in the components built in prior phases.
+**Why fifth**: This is the keystone phase. It connects Phases 3 and 4 to LLMs and produces the first user-visible output. The orchestrator is a thin coordination layer -- the heavy logic lives in the components built in prior phases.
 
 #### Files to Implement
 
@@ -593,6 +593,7 @@ RRF unit tests pass with purely in-memory data (no Redis). Integration tests pro
 |------|-------------|
 | `src/contextflow/llm/base.py` | `LLMProvider` ABC with `async complete(messages, stream, max_tokens) -> str \| AsyncIterator[str]`. `Message` dataclass: `role: str`, `content: str`. |
 | `src/contextflow/llm/openai.py` | `OpenAIProvider(settings)` -- uses the `openai` async client. Implements both streaming (yields tokens) and non-streaming (returns full string). |
+| `src/contextflow/llm/gemini.py` | `GeminiProvider(settings)` -- uses Google Gemini API. Implements both streaming and non-streaming modes with proper message formatting. |
 | `src/contextflow/llm/router.py` | `LLMRouter(settings)` -- holds primary + optional fallback provider. `async complete()` delegates to primary, catches exceptions, falls back to secondary if configured. |
 | `src/contextflow/orchestrator.py` | `QueryOrchestrator` -- the 10-step pipeline. For MVP, steps 2-4 are stubbed (no cache, session, or long-term memory yet). |
 | `prompts/rag_system_v1.txt` (new) | The RAG system prompt from `docs/04-Prompts/00-prompt-templates.md` Section 2. |
@@ -663,6 +664,18 @@ Each chunk is wrapped with its `source_id` (used in citations) and human-readabl
 | `test_respects_max_tokens` | `max_tokens` passed to API call |
 | `test_respects_temperature` | `temperature` passed to API call |
 
+**`tests/unit/test_llm_gemini.py`**:
+
+| Test | What it verifies |
+|------|-----------------|
+| `test_formats_messages_correctly` | Messages formatted as Gemini API expects |
+| `test_returns_string_when_not_streaming` | Non-stream mode returns `str` |
+| `test_returns_async_iterator_when_streaming` | Stream mode returns `AsyncIterator[str]` |
+| `test_handles_api_error_with_clear_message` | API error re-raised with context (model, error type) |
+| `test_respects_max_tokens` | `max_tokens` passed to API call |
+| `test_respects_temperature` | `temperature` passed to API call |
+| `test_handles_safety_filters` | Proper handling of Gemini safety filters and content policies |
+
 **`tests/unit/test_llm_router.py`**:
 
 | Test | What it verifies |
@@ -688,16 +701,25 @@ Each chunk is wrapped with its `source_id` (used in citations) and human-readabl
 
 | Test | What it verifies |
 |------|-----------------|
-| `test_ingest_then_query_returns_grounded_answer` | Ingest sample.md -> query about its content -> get an answer that references the content (real Redis, mocked LLM) |
+| `test_ingest_then_query_returns_grounded_answer_openai` | Ingest sample.md -> query about its content -> get an answer that references the content (real Redis, OpenAI LLM) |
+| `test_ingest_then_query_returns_grounded_answer_gemini` | Ingest sample.md -> query about its content -> get an answer that references the content (real Redis, Gemini LLM) |
 | `test_query_with_no_relevant_docs_refuses` | Query about unrelated topic returns refusal message |
+| `test_provider_fallback_works` | Primary provider failure falls back to secondary provider |
 
 #### Dependencies
 
-Phases 1-4 (everything built so far).
+Phases 1-4 (everything built so far). Add `google-generativeai` package for Gemini support.
+
+#### Provider Configuration
+
+Both OpenAI and Gemini providers will be supported:
+- **OpenAI**: Requires `OPENAI_API_KEY` environment variable
+- **Gemini**: Requires `GEMINI_API_KEY` environment variable
+- **Router**: Configurable primary/fallback provider in settings
 
 #### Done When
 
-End-to-end integration test passes: ingest a sample document, submit a query, receive a grounded answer with citations. **This is the MVP milestone.** `pytest tests/` passes -- all unit tests (with mocked LLM/embedder) and integration tests (with real Redis, mocked LLM) are green.
+End-to-end integration test passes: ingest a sample document, submit a query, receive a grounded answer with citations using both OpenAI and Gemini providers. **This is the MVP milestone.** `pytest tests/` passes -- all unit tests (with mocked LLM/embedder) and integration tests (with real Redis, real LLMs) are green.
 
 ---
 

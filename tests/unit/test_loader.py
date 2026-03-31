@@ -9,7 +9,7 @@ from pathlib import Path
 
 import pytest
 
-from contextflow.ingestion.loader import Document, load_file, load_directory
+from contextflow.ingestion.loader import load_directory, load_file
 
 FIXTURES = Path(__file__).resolve().parents[1] / "fixtures"
 

@@ -99,7 +99,7 @@ async def ingest_pipeline(
             "version": 1,
             "indexed_at": now,
         }
-        await redis_client.hset(key, mapping=mapping)
+        await redis_client.hset(key, mapping=mapping)  # type: ignore[misc]
 
     logger.info(
         "Stored %d chunks in Redis (doc_id=%s): %s",

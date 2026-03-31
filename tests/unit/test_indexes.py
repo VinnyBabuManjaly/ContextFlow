@@ -9,7 +9,11 @@ import pytest
 from redis.commands.search.field import NumericField, TagField, TextField, VectorField
 
 from contextflow.config import Settings
-from contextflow.redis.indexes import build_chunk_index_args, build_cache_index_args, build_memory_index_args
+from contextflow.redis.indexes import (
+    build_cache_index_args,
+    build_chunk_index_args,
+    build_memory_index_args,
+)
 
 
 @pytest.fixture

@@ -5,7 +5,6 @@ embedder (to avoid API calls). They verify that chunks are stored correctly
 and are searchable via FT.SEARCH.
 """
 
-import struct
 from pathlib import Path
 from unittest.mock import AsyncMock
 
@@ -14,8 +13,8 @@ import redis.asyncio as aioredis
 
 from contextflow.config import Settings
 from contextflow.ingestion.embedder import Embedder
-from contextflow.ingestion.pipeline import ingest_pipeline, IngestResult
-from contextflow.redis.client import get_redis_client, close_redis_client
+from contextflow.ingestion.pipeline import ingest_pipeline
+from contextflow.redis.client import close_redis_client, get_redis_client
 from contextflow.redis.indexes import ensure_indexes
 
 FIXTURES = Path(__file__).resolve().parents[1] / "fixtures"

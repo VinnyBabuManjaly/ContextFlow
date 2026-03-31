@@ -10,7 +10,7 @@ from pathlib import Path
 import pytest
 import tiktoken
 
-from contextflow.ingestion.chunker import Chunk, chunk_document
+from contextflow.ingestion.chunker import chunk_document
 from contextflow.ingestion.loader import Document
 
 FIXTURES = Path(__file__).resolve().parents[1] / "fixtures"

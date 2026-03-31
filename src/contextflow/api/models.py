@@ -7,7 +7,6 @@ inputs at construction time so invalid data never reaches business logic.
 
 from pydantic import BaseModel, field_validator
 
-
 # ---------------------------------------------------------------------------
 # Internal data transfer objects
 # ---------------------------------------------------------------------------

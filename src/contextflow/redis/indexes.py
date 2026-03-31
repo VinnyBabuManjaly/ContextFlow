@@ -11,6 +11,8 @@ Index schemas from docs/02-System-Design/00-system-design.md Section 5:
 
 import logging
 
+from typing import Any, Sequence
+
 import redis.asyncio as aioredis
 from redis.commands.search.field import NumericField, TagField, TextField, VectorField
 from redis.commands.search.index_definition import IndexDefinition, IndexType
@@ -21,7 +23,7 @@ from contextflow.config import Settings
 logger = logging.getLogger(__name__)
 
 
-def _vector_field_args(settings: Settings) -> dict:
+def _vector_field_args(settings: Settings) -> dict[str, Any]:
     """Common vector field arguments derived from config."""
     args = {
         "TYPE": "FLOAT32",
@@ -35,7 +37,7 @@ def _vector_field_args(settings: Settings) -> dict:
     return args
 
 
-def build_chunk_index_args(settings: Settings) -> list:
+def build_chunk_index_args(settings: Settings) -> Sequence[VectorField | TextField | TagField | NumericField]:
     """Build the field list for the chunk_index FT.CREATE command.
 
     Fields:
@@ -55,7 +57,7 @@ def build_chunk_index_args(settings: Settings) -> list:
     ]
 
 
-def build_cache_index_args(settings: Settings) -> list:
+def build_cache_index_args(settings: Settings) -> Sequence[VectorField]:
     """Build the field list for the cache_index FT.CREATE command.
 
     Fields:
@@ -67,7 +69,7 @@ def build_cache_index_args(settings: Settings) -> list:
     ]
 
 
-def build_memory_index_args(settings: Settings) -> list:
+def build_memory_index_args(settings: Settings) -> Sequence[VectorField]:
     """Build the field list for the memory_index FT.CREATE command.
 
     Fields:
@@ -83,7 +85,7 @@ async def _create_index_if_not_exists(
     client: aioredis.Redis,
     index_name: str,
     prefix: str,
-    fields: list,
+    fields: list[Any],
 ) -> None:
     """Create a single FT index, skipping if it already exists.
 
@@ -94,7 +96,7 @@ async def _create_index_if_not_exists(
     try:
         await client.ft(index_name).create_index(
             fields,
-            definition=IndexDefinition(prefix=[prefix], index_type=IndexType.HASH),
+            definition=IndexDefinition(prefix=[prefix], index_type=IndexType.HASH),  # type: ignore[no-untyped-call]
         )
         logger.info("Created index: %s (prefix: %s)", index_name, prefix)
     except ResponseError as e:

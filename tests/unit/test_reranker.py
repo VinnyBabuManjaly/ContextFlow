@@ -4,7 +4,6 @@ The reranker is a pass-through when disabled — it returns the input unchanged.
 When enabled, it reorders and trims to top_n.
 """
 
-import pytest
 
 from contextflow.retrieval.reranker import rerank
 from contextflow.retrieval.search_types import SearchResult

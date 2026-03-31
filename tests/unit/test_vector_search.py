@@ -5,7 +5,6 @@ the correct query and processes results correctly. Real search is tested
 in integration tests.
 """
 
-import pytest
 from unittest.mock import AsyncMock, MagicMock
 
 from contextflow.retrieval.vector_search import vector_search
@@ -19,10 +18,20 @@ class TestReturnsChunksRankedBySimilarity:
         # Simulate FT.SEARCH returning 2 results with distances
         doc1 = MagicMock()
         doc1.id = "chunk:abc:0"
-        doc1.__dict__.update({"text": "chunk one", "filename": "a.md", "section": "S1", "vector_distance": "0.1"})
+        doc1.__dict__.update({
+            "text": "chunk one",
+            "filename": "a.md",
+            "section": "S1",
+            "vector_distance": "0.1"
+        })
         doc2 = MagicMock()
         doc2.id = "chunk:abc:1"
-        doc2.__dict__.update({"text": "chunk two", "filename": "a.md", "section": "S2", "vector_distance": "0.3"})
+        doc2.__dict__.update({
+            "text": "chunk two",
+            "filename": "a.md",
+            "section": "S2",
+            "vector_distance": "0.3"
+        })
         search_result = MagicMock()
         search_result.docs = [doc1, doc2]
         search_result.total = 2
@@ -51,7 +60,12 @@ class TestRespectsTopKParameter:
         for i in range(10):
             doc = MagicMock()
             doc.id = f"chunk:abc:{i}"
-            doc.__dict__.update({"text": f"chunk {i}", "filename": "a.md", "section": "S", "vector_distance": str(i * 0.1)})
+            doc.__dict__.update({
+                "text": f"chunk {i}",
+                "filename": "a.md",
+                "section": "S",
+                "vector_distance": str(i * 0.1)
+            })
             docs.append(doc)
         search_result = MagicMock()
         search_result.docs = docs[:3]
@@ -94,10 +108,20 @@ class TestAppliesSimilarityThreshold:
         # Simulate results with distances above and below threshold
         doc1 = MagicMock()
         doc1.id = "chunk:abc:0"
-        doc1.__dict__.update({"text": "chunk one", "filename": "a.md", "section": "S1", "vector_distance": "0.1"})  # Good
+        doc1.__dict__.update({
+            "text": "chunk one",
+            "filename": "a.md",
+            "section": "S1",
+            "vector_distance": "0.1"
+        })  # Good
         doc2 = MagicMock()
         doc2.id = "chunk:abc:1"
-        doc2.__dict__.update({"text": "chunk two", "filename": "a.md", "section": "S2", "vector_distance": "0.8"})  # Bad
+        doc2.__dict__.update({
+            "text": "chunk two",
+            "filename": "a.md",
+            "section": "S2",
+            "vector_distance": "0.8"
+        })  # Bad
         search_result = MagicMock()
         search_result.docs = [doc1, doc2]
         search_result.total = 2

@@ -20,7 +20,6 @@ import pytest
 # ---------------------------------------------------------------------------
 from contextflow.config import Settings, get_settings
 
-
 # Path to the project-root config.yaml used by these tests.
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 CONFIG_PATH = PROJECT_ROOT / "config.yaml"
