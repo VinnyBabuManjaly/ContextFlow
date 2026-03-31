@@ -12,7 +12,7 @@ from pathlib import Path
 import pytest
 
 from contextflow.config import get_settings
-from contextflow.ingestion.embedder import OpenAIEmbedder
+from contextflow.ingestion.embedder import Embedder
 from contextflow.ingestion.loader import load_file
 from contextflow.ingestion.pipeline import ingest_pipeline
 from contextflow.redis.client import close_redis_client, get_redis_client
@@ -38,12 +38,9 @@ async def redis_client():
 
 @pytest.fixture(scope="module")
 async def embedder():
-    """OpenAI embedder for tests."""
+    """Embedder for tests."""
     settings = get_settings()
-    if settings.embedding.provider != "openai":
-        pytest.skip("OpenAI embedder required for integration tests")
-
-    embedder = OpenAIEmbedder(settings)
+    embedder = Embedder(settings.embedding.dimension)
     return embedder
 
 
