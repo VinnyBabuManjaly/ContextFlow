@@ -28,6 +28,7 @@ dev = [
     "mypy>=1.13",
     "bandit>=1.7",
     "build>=0.10",
+    "types-PyYAML>=6.0",
 ]
 local = [
     "sentence-transformers>=3.0",
