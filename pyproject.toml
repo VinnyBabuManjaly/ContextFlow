@@ -12,6 +12,7 @@ dependencies = [
     "uvicorn[standard]>=0.34",
     "redis[hiredis]>=5.0",
     "openai>=1.0",
+    "google-genai>=1.0",
     "tiktoken>=0.7",
     "click>=8.0",
     "pydantic>=2.0",
