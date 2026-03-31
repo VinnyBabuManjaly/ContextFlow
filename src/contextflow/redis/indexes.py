@@ -85,7 +85,7 @@ async def _create_index_if_not_exists(
     client: aioredis.Redis,
     index_name: str,
     prefix: str,
-    fields: Sequence[Any],
+    fields: list[Any],
 ) -> None:
     """Create a single FT index, skipping if it already exists.
 
