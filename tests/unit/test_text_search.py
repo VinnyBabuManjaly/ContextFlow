@@ -6,8 +6,6 @@ the correct query and processes results correctly.
 
 from unittest.mock import AsyncMock, MagicMock
 
-import pytest
-
 from contextflow.retrieval.text_search import text_search
 
 
@@ -18,7 +16,11 @@ class TestFindsExactKeywordMatch:
         mock_client = AsyncMock()
         doc = MagicMock()
         doc.id = "chunk:abc:0"
-        doc.__dict__.update({"text": "Use EXPIRE to set TTL", "filename": "a.md", "section": "EXPIRE"})
+        doc.__dict__.update({
+            "text": "Use EXPIRE to set TTL",
+            "filename": "a.md",
+            "section": "EXPIRE"
+        })
         search_result = MagicMock()
         search_result.docs = [doc]
         search_result.total = 1

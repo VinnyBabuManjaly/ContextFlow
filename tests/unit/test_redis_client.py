@@ -8,7 +8,7 @@ Actual connectivity is tested in integration tests.
 import pytest
 
 from contextflow.config import Settings
-from contextflow.redis.client import get_redis_client, close_redis_client
+from contextflow.redis.client import get_redis_client
 
 
 @pytest.fixture

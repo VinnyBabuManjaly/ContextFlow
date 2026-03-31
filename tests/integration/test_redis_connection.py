@@ -9,7 +9,7 @@ import pytest
 import redis.asyncio as aioredis
 
 from contextflow.config import Settings
-from contextflow.redis.client import get_redis_client, close_redis_client
+from contextflow.redis.client import close_redis_client, get_redis_client
 from contextflow.redis.indexes import ensure_indexes
 
 
