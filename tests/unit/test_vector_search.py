@@ -26,7 +26,9 @@ class TestReturnsChunksRankedBySimilarity:
         search_result = MagicMock()
         search_result.docs = [doc1, doc2]
         search_result.total = 2
-        mock_client.ft.return_value.search = AsyncMock(return_value=search_result)
+        ft_mock = MagicMock()
+        ft_mock.search = AsyncMock(return_value=search_result)
+        mock_client.ft = MagicMock(return_value=ft_mock)
 
         results = await vector_search(
             client=mock_client,
@@ -54,7 +56,9 @@ class TestRespectsTopKParameter:
         search_result = MagicMock()
         search_result.docs = docs[:3]
         search_result.total = 3
-        mock_client.ft.return_value.search = AsyncMock(return_value=search_result)
+        ft_mock = MagicMock()
+        ft_mock.search = AsyncMock(return_value=search_result)
+        mock_client.ft = MagicMock(return_value=ft_mock)
 
         results = await vector_search(
             client=mock_client, query_vector=[0.1] * 768, top_k=3, similarity_threshold=0.0,
@@ -71,7 +75,9 @@ class TestReturnsEmptyWhenNoMatch:
         search_result = MagicMock()
         search_result.docs = []
         search_result.total = 0
-        mock_client.ft.return_value.search = AsyncMock(return_value=search_result)
+        ft_mock = MagicMock()
+        ft_mock.search = AsyncMock(return_value=search_result)
+        mock_client.ft = MagicMock(return_value=ft_mock)
 
         results = await vector_search(
             client=mock_client, query_vector=[0.1] * 768, top_k=5, similarity_threshold=0.0,

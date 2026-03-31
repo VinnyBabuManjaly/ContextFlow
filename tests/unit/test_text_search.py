@@ -22,7 +22,9 @@ class TestFindsExactKeywordMatch:
         search_result = MagicMock()
         search_result.docs = [doc]
         search_result.total = 1
-        mock_client.ft.return_value.search = AsyncMock(return_value=search_result)
+        ft_mock = MagicMock()
+        ft_mock.search = AsyncMock(return_value=search_result)
+        mock_client.ft = MagicMock(return_value=ft_mock)
 
         results = await text_search(client=mock_client, query_text="EXPIRE", top_k=5)
 
@@ -38,7 +40,9 @@ class TestReturnsEmptyForNoMatch:
         search_result = MagicMock()
         search_result.docs = []
         search_result.total = 0
-        mock_client.ft.return_value.search = AsyncMock(return_value=search_result)
+        ft_mock = MagicMock()
+        ft_mock.search = AsyncMock(return_value=search_result)
+        mock_client.ft = MagicMock(return_value=ft_mock)
 
         results = await text_search(client=mock_client, query_text="xyznotexist", top_k=5)
 
@@ -59,7 +63,9 @@ class TestRespectsTopK:
         search_result = MagicMock()
         search_result.docs = docs[:2]
         search_result.total = 2
-        mock_client.ft.return_value.search = AsyncMock(return_value=search_result)
+        ft_mock = MagicMock()
+        ft_mock.search = AsyncMock(return_value=search_result)
+        mock_client.ft = MagicMock(return_value=ft_mock)
 
         results = await text_search(client=mock_client, query_text="chunk", top_k=2)
 
