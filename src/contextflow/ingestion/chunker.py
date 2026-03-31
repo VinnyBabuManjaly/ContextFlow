@@ -58,7 +58,7 @@ def _extract_section(text: str, full_text: str, char_offset: int) -> str:
     # Find all markdown headings
     headings = re.findall(r"^(#{1,6})\s+(.+)$", prefix, re.MULTILINE)
     if headings:
-        return headings[-1][1].strip()  # return the text of the last heading found
+        return str(headings[-1][1]).strip()  # return the text of the last heading found
     return ""
 
 
